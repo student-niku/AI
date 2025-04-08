@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Test</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 50px; }
+        button { padding: 15px 30px; font-size: 18px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #status { margin: 30px; font-size: 20px; min-height: 30px; }
+    </style>
+</head>
+<body>
+    <h1>हिंदी वॉइस टेस्ट</h1>
+    <div id="status">माइक्रोफोन शुरू करने के लिए बटन दबाएं</div>
+    <button id="startBtn">शुरू करें</button>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const statusDiv = document.getElementById('status');
+        
+        if (!('webkitSpeechRecognition' in window)) {
+            statusDiv.textContent = 'कृपया Google Chrome ब्राउज़र का उपयोग करें';
+            startBtn.disabled = true;
+        } else {
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'hi-IN';
+            recognition.interimResults = false;
+            
+            startBtn.onclick = () => {
+                recognition.start();
+                statusDiv.textContent = 'सुन रहा हूँ... बोलें';
+                startBtn.textContent = 'बंद करें';
+                startBtn.style.background = '#ea4335';
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                statusDiv.textContent = 'आपने कहा: ' + transcript;
+            };
+            
+            recognition.onerror = (event) => {
+                statusDiv.textContent = 'त्रुटि: ' + event.error;
+                startBtn.textContent = 'शुरू करें';
+                startBtn.style.background = '#4285f4';
+            };
+        }
+    </script>
+</body>
+</html>

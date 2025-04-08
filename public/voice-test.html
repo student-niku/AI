@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Test</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+        #status { color: #666; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Voice Recognition Test</h1>
+    <div id="status">Click the button to start</div>
+    <button id="micButton">Start Microphone</button>
+    <div id="output"></div>
+
+    <script>
+        const micButton = document.getElementById('micButton');
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+        
+        let recognition;
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'hi-IN';
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length-1][0].transcript;
+                outputDiv.innerHTML += `<p>You said: ${transcript}</p>`;
+            };
+            
+            recognition.onerror = (event) => {
+                statusDiv.innerHTML = `Error: ${event.error}`;
+                micButton.textContent = 'Start Microphone';
+            };
+            
+            micButton.onclick = () => {
+                if (micButton.textContent === 'Start Microphone') {
+                    recognition.start();
+                    micButton.textContent = 'Stop Microphone';
+                    statusDiv.textContent = 'Listening...';
+                } else {
+                    recognition.stop();
+                    micButton.textContent = 'Start Microphone';
+                    statusDiv.textContent = 'Microphone stopped';
+                }
+            };
+        } else {
+            statusDiv.textContent = 'Speech recognition not supported in this browser';
+            micButton.disabled = true;
+        }
+    </script>
+</body>
+</html>
