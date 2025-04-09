@@ -1,54 +1,117 @@
 import { useState, useEffect, useRef } from 'react';
-import { FREE_AI_OPTIONS } from './config/freeAI';
+import Avatar from './components/Avatar';
+import { GEMINI_CONFIG, ELEVENLABS_CONFIG } from './apiConfig';
 
 const VoiceAssistant = () => {
   const [isListening, setIsListening] = useState(false);
-  const [status, setStatus] = useState('माइक्रोफोन शुरू करने के लिए बटन दबाएं');
+  const [status, setStatus] = useState('Press button to start microphone');
   const [conversation, setConversation] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState(ELEVENLABS_CONFIG.VOICE_ID);
   const recognitionRef = useRef(null);
-  const synthRef = useRef(null);
 
   const addToConversation = (role, message) => {
-    setConversation(prev => [...prev, { role, message }]);
+    setConversation(prev => [...prev, {role, message}]);
   };
 
-  const getAIResponse = async (prompt) => {
+  const getGeminiResponse = async (instruction) => {
     try {
-      setStatus('प्रसंस्करण...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_CONFIG.API_KEY}`;
       
-      // Use Hugging Face API by default
-      const response = await fetch(FREE_AI_OPTIONS.HUGGINGFACE.API_URL, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${FREE_AI_OPTIONS.HUGGINGFACE.API_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: `हिंदी में संक्षिप्त उत्तर दें (50 शब्दों से कम): ${prompt}`
+          contents: [{
+            parts: [{
+              text: instruction
+            }]
+          }]
         })
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage += ` - ${errorData.error?.message || JSON.stringify(errorData)}`;
+        } catch (e) {
+          errorMessage += ` - ${await response.text()}`;
+        }
+        console.error('Gemini API Error Details:', {
+          url: apiUrl,
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        throw new Error(`API error: ${errorMessage}`);
+      }
       
       const data = await response.json();
-      const responseText = Array.isArray(data) ? data[0].generated_text : "माफ़ कीजिए, उत्तर प्राप्त नहीं हुआ";
+      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                         "माफ़ कीजिए, मैं इस प्रश्न का उत्तर नहीं दे पा रहा हूँ";
       
+      setIsLoading(false);
       setStatus('सुन रहा हूँ... बोलें');
       return responseText;
     } catch (error) {
       console.error('API Error:', error);
+      setIsLoading(false);
       setStatus('त्रुटि हुई, पुनः प्रयास करें');
       return "माफ़ कीजिए, तकनीकी समस्या आई है। कृपया बाद में प्रयास करें।";
     }
   };
 
-  const speak = (text) => {
-    if (synthRef.current.speaking) synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'hi-IN';
-    utterance.rate = 0.9;
-    synthRef.current.speak(utterance);
+  const speakUsingElevenLabs = async (text) => {
+    try {
+      const response = await fetch(
+        `${ELEVENLABS_CONFIG.API_URL}/${selectedVoice}`,
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text,
+            model_id: ELEVENLABS_CONFIG.MODEL_ID,
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.5
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage += ` - ${errorData.error?.message || JSON.stringify(errorData)}`;
+        } catch (e) {
+          errorMessage += ` - ${await response.text()}`;
+        }
+        console.error('ElevenLabs API Error Details:', {
+          url: `${ELEVENLABS_CONFIG.API_URL}/${selectedVoice}`,
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        throw new Error(`ElevenLabs API error: ${errorMessage}`);
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (error) {
+      console.error('ElevenLabs Error:', error);
+      // Fallback to default speech synthesis
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'hi-IN';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const toggleListening = () => {
@@ -63,9 +126,8 @@ const VoiceAssistant = () => {
     }
   };
 
-  useEffect(() => {
-    synthRef.current = window.speechSynthesis;
 
+  useEffect(() => {
     if (!('webkitSpeechRecognition' in window)) {
       setStatus('कृपया Chrome ब्राउज़र का उपयोग करें');
       return;
@@ -86,9 +148,10 @@ const VoiceAssistant = () => {
 
       if (finalTranscript.trim() !== '') {
         addToConversation('user', finalTranscript);
+        setIsLoading(true);
         const response = await getGeminiResponse(finalTranscript);
         addToConversation('assistant', response);
-        speak(response);
+        speakUsingElevenLabs(response);
       }
     };
 
@@ -104,19 +167,38 @@ const VoiceAssistant = () => {
 
   return (
     <div className="voice-assistant">
-      <h1>हिंदी वॉइस असिस्टेंट</h1>
-      <div className="button-container">
-        <button onClick={toggleListening} className={isListening ? 'listening' : ''}>
-          {isListening ? 'बंद करें' : 'शुरू करें'}
-        </button>
-      </div>
-      <div className="status">{status}</div>
-      <div className="conversation">
-        {conversation.map((item, index) => (
-          <div key={index} className={`message ${item.role}`}>
-            {item.message}
-          </div>
-        ))}
+      <h1>Hindi Voice Assistant</h1>
+      <Avatar isSpeaking={isListening || isLoading} />
+      <div className="voice-controls">
+        <div className="button-container">
+          <button onClick={toggleListening} className={isListening ? 'listening' : ''}>
+              {isListening ? 'Stop' : 'Start'}
+          </button>
+        </div>
+      
+        <div className="voice-selection">
+          <select
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+          >
+            <option value="21m00Tcm4TlvDq8ikWAM">Hindi Voice 1</option>
+            <option value="AZnzlk1XvdvUeBnXmlld">Hindi Voice 2</option>
+          </select>
+        </div>
+        <div className="status">
+          {isLoading ? (
+            <div className="loading-spinner"></div>
+          ) : (
+            status
+          )}
+        </div>
+        <div className="conversation">
+          {conversation.map((item, index) => (
+            <div key={index} className={`message ${item.role}`}>
+              {item.message}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
