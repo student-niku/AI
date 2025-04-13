@@ -1,8 +1,19 @@
-// Updated API Configuration
 export const GEMINI_CONFIG = {
   API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
   API_KEY: 'AIzaSyDp64zqG4jbxn_v_wyJTsbem8rxMlHSCVI',
   MODEL_ID: 'gemini-2.0-flash'
+};
+
+export const DEEPAI_CONFIG = {
+  TEXT_TO_SPEECH: {
+    API_URL: 'https://api.deepai.org/api/text-to-speech',
+    API_KEY: 'c37def9c-961a-4106-9782-d01051423120',
+    VOICE: 'hindi-male'
+  },
+  IMAGE_GENERATION: {
+    API_URL: 'https://api.deepai.org/api/text2img',
+    API_KEY: 'c37def9c-961a-4106-9782-d01051423120'
+  }
 };
 
 export const ELEVENLABS_CONFIG = {

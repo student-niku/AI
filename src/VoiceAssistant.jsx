@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import Avatar from './components/Avatar';
-import { GEMINI_CONFIG, ELEVENLABS_CONFIG } from './apiConfig';
+import NewAIAvatar from './components/NewAIAvatar';
+import { GEMINI_CONFIG, ELEVENLABS_CONFIG, DEEPAI_CONFIG } from './apiConfig';
 
 const VoiceAssistant = () => {
   const [isListening, setIsListening] = useState(false);
@@ -11,7 +11,11 @@ const VoiceAssistant = () => {
   const recognitionRef = useRef(null);
 
   const addToConversation = (role, message) => {
-    setConversation(prev => [...prev, {role, message}]);
+    // Handle both string and structured message formats
+    const formattedMessage = typeof message === 'string' 
+      ? { type: 'text', content: message }
+      : message;
+    setConversation(prev => [{ role, message: formattedMessage }, ...prev]);
   };
 
   const getGeminiResponse = async (instruction) => {
@@ -63,54 +67,106 @@ const VoiceAssistant = () => {
     }
   };
 
-  const speakUsingElevenLabs = async (text) => {
+  const generateImage = async (prompt) => {
     try {
-      const response = await fetch(
-        `${ELEVENLABS_CONFIG.API_URL}/${selectedVoice}`,
-        {
+      const response = await fetch(DEEPAI_CONFIG.IMAGE_GENERATION.API_URL, {
+        method: 'POST',
+        headers: {
+          'api-key': DEEPAI_CONFIG.IMAGE_GENERATION.API_KEY
+        },
+        body: new URLSearchParams({ text: prompt })
+      });
+      
+      if (!response.ok) throw new Error('Image generation failed');
+      const data = await response.json();
+      return data.output_url;
+    } catch (error) {
+      console.error('Image generation error:', error);
+      return null;
+    }
+  };
+
+  const speakText = async (text) => {
+    return new Promise(async (resolve) => {
+      // Try DeepAI first
+      try {
+        const deepaiResponse = await fetch(DEEPAI_CONFIG.API_URL, {
           method: 'POST',
           headers: {
-            'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
-            'Content-Type': 'application/json',
+            'api-key': DEEPAI_CONFIG.API_KEY,
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             text,
-            model_id: ELEVENLABS_CONFIG.MODEL_ID,
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.5
-            }
+            voice: DEEPAI_CONFIG.VOICE
           })
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage += ` - ${errorData.error?.message || JSON.stringify(errorData)}`;
-        } catch (e) {
-          errorMessage += ` - ${await response.text()}`;
-        }
-        console.error('ElevenLabs API Error Details:', {
-          url: `${ELEVENLABS_CONFIG.API_URL}/${selectedVoice}`,
-          status: response.status,
-          headers: Object.fromEntries(response.headers.entries())
         });
-        throw new Error(`ElevenLabs API error: ${errorMessage}`);
+        
+        if (deepaiResponse.ok) {
+          const audioBlob = await deepaiResponse.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          audio.onended = () => resolve();
+          audio.play();
+          return;
+        }
+      } catch (e) {
+        console.log('DeepAI failed, trying ElevenLabs');
       }
-      
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play();
-    } catch (error) {
-      console.error('ElevenLabs Error:', error);
-      // Fallback to default speech synthesis
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'hi-IN';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
+
+      // Fallback to ElevenLabs
+      try {
+        const elevenLabsResponse = await fetch(
+          `${ELEVENLABS_CONFIG.API_URL}/${ELEVENLABS_CONFIG.VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              model_id: ELEVENLABS_CONFIG.MODEL_ID
+            })
+          }
+        );
+        
+        if (elevenLabsResponse.ok) {
+          const audioBlob = await elevenLabsResponse.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          audio.onended = () => resolve();
+          audio.play();
+          return;
+        }
+      } catch (e) {
+        console.log('ElevenLabs failed, trying browser TTS');
+      }
+
+      // Final fallback to browser TTS
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'hi-IN';
+        utterance.onend = () => resolve();
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error('All TTS methods failed');
+        resolve();
+      }
+    });
+  };
+
+  const selectVoice = (utterance, voices) => {
+    // Prefer Hindi voices, fallback to any available
+    const hindiVoice = voices.find(v => v.lang.includes('hi-IN')) || 
+                     voices.find(v => v.lang.includes('hi')) ||
+                     voices.find(v => v.lang.includes('en'));
+    
+    if (hindiVoice) {
+      utterance.voice = hindiVoice;
+      console.log('Using voice:', hindiVoice.name);
+    } else {
+      console.warn('No Hindi voice found. Available voices:', voices);
     }
   };
 
@@ -147,11 +203,29 @@ const VoiceAssistant = () => {
       }
 
       if (finalTranscript.trim() !== '') {
-        addToConversation('user', finalTranscript);
+        addToConversation('user', {type: 'text', content: finalTranscript});
         setIsLoading(true);
-        const response = await getGeminiResponse(finalTranscript);
-        addToConversation('assistant', response);
-        speakUsingElevenLabs(response);
+        
+        if (finalTranscript.toLowerCase().includes('image') || 
+            finalTranscript.toLowerCase().includes('चित्र')) {
+          const imageUrl = await generateImage(finalTranscript);
+          if (imageUrl) {
+            addToConversation('assistant', {type: 'image', content: imageUrl});
+            const description = await getGeminiResponse(`Describe this image in Hindi in one sentence: ${finalTranscript}`);
+            addToConversation('assistant', {type: 'text', content: description});
+            speakText(description);
+          } else {
+            const errorMsg = "माफ़ कीजिए, मैं चित्र नहीं बना पाया";
+            addToConversation('assistant', {type: 'text', content: errorMsg});
+            speakText(errorMsg);
+          }
+        } else {
+          const response = await getGeminiResponse(finalTranscript);
+          addToConversation('assistant', {type: 'text', content: response});
+          speakText(response);
+        }
+        
+        setIsLoading(false);
       }
     };
 
@@ -167,8 +241,7 @@ const VoiceAssistant = () => {
 
   return (
     <div className="voice-assistant">
-      <h1>Hindi Voice Assistant</h1>
-      <Avatar isSpeaking={isListening || isLoading} />
+      <NewAIAvatar isSpeaking={isListening || isLoading} />
       <div className="voice-controls">
         <div className="button-container">
           <button onClick={toggleListening} className={isListening ? 'listening' : ''}>
@@ -193,11 +266,33 @@ const VoiceAssistant = () => {
           )}
         </div>
         <div className="conversation">
-          {conversation.map((item, index) => (
-            <div key={index} className={`message ${item.role}`}>
-              {item.message}
-            </div>
-          ))}
+          {conversation.map((item, index) => {
+            const message = item.message;
+            return (
+              <div key={index} className={`message ${item.role}`}>
+                {message.type === 'image' ? (
+                  <>
+                    <img 
+                      src={message.content} 
+                      alt="Generated AI art"
+                      style={{
+                        maxWidth: '100%',
+                        borderRadius: '8px',
+                        marginTop: '10px'
+                      }}
+                    />
+                    {conversation[index+1]?.message?.type === 'text' && (
+                      <div style={{marginTop: '5px', fontStyle: 'italic'}}>
+                        {conversation[index+1].message.content}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  message.content
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
