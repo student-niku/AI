@@ -9,11 +9,8 @@ export const DEEPAI_CONFIG = {
     API_URL: 'https://api.deepai.org/api/text-to-speech',
     API_KEY: 'c37def9c-961a-4106-9782-d01051423120',
     VOICE: 'hindi-male'
-  },
-  IMAGE_GENERATION: {
-    API_URL: 'https://api.deepai.org/api/text2img',
-    API_KEY: 'c37def9c-961a-4106-9782-d01051423120'
   }
+  
 };
 
 export const ELEVENLABS_CONFIG = {

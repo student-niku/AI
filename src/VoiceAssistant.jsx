@@ -69,52 +69,27 @@ const VoiceAssistant = () => {
     }
   };
 
-  const generateImage = async (prompt) => {
-    try {
-      const response = await fetch(DEEPAI_CONFIG.IMAGE_GENERATION.API_URL, {
-        method: 'POST',
-        headers: {
-          'api-key': DEEPAI_CONFIG.IMAGE_GENERATION.API_KEY,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ 
-          text: prompt,
-          grid_size: '1',
-          image_generator_version: 'hd'
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('DeepAI API Error:', error);
-        throw new Error(error.err || 'Image generation failed');
-      }
-      const data = await response.json();
-      return data.output_url;
-    } catch (error) {
-      console.error('Image generation error:', error);
-      return null;
-    }
-  };
-
   const speakText = async (text) => {
     return new Promise(async (resolve) => {
-      // Try DeepAI first
+      // Try ElevenLabs first
       try {
-        const deepaiResponse = await fetch(DEEPAI_CONFIG.API_URL, {
-          method: 'POST',
-          headers: {
-            'api-key': DEEPAI_CONFIG.API_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            text,
-            voice: DEEPAI_CONFIG.VOICE
-          })
-        });
+        const elevenLabsResponse = await fetch(
+          `${ELEVENLABS_CONFIG.API_URL}/${ELEVENLABS_CONFIG.VOICE_ID}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              model_id: ELEVENLABS_CONFIG.MODEL_ID
+            })
+          }
+        );
         
-        if (deepaiResponse.ok) {
-          const audioBlob = await deepaiResponse.blob();
+        if (elevenLabsResponse.ok) {
+          const audioBlob = await elevenLabsResponse.blob();
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           audio.onended = () => resolve();
@@ -122,10 +97,10 @@ const VoiceAssistant = () => {
           return;
         }
       } catch (e) {
-        console.log('DeepAI failed, trying ElevenLabs');
+        console.log('ElevenLabs failed, trying browser TTS');
       }
 
-      // Fallback to ElevenLabs
+      // Fallback to browser TTS
       try {
         const elevenLabsResponse = await fetch(
           `${ELEVENLABS_CONFIG.API_URL}/${ELEVENLABS_CONFIG.VOICE_ID}`,

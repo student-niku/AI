@@ -1,33 +1,5 @@
-import { useState, useEffect } from 'react';
-import { DEEPAI_CONFIG } from '../apiConfig';
-
 const NewAIAvatar = ({ isSpeaking }) => {
-  const [avatarImage, setAvatarImage] = useState('https://img.freepik.com/free-photo/robotic-human-heart-futuristic-representation_23-2151681127.jpg?semt=ais_hybrid&w=740');
-
-  useEffect(() => {
-    const generateAvatar = async () => {
-      try {
-        const response = await fetch(DEEPAI_CONFIG.IMAGE_GENERATION.API_URL, {
-          method: 'POST',
-          headers: {
-            'api-key': DEEPAI_CONFIG.IMAGE_GENERATION.API_KEY
-          },
-          body: new URLSearchParams({ 
-            text: 'Friendly Hindi AI assistant avatar, cartoon style'
-          })
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setAvatarImage(data.output_url);
-        }
-      } catch (error) {
-        console.error('Avatar generation failed, using default');
-      }
-    };
-
-    generateAvatar();
-  }, []);
+  const AVATAR_IMAGE = 'https://img.freepik.com/free-photo/robotic-human-heart-futuristic-representation_23-2151681127.jpg?semt=ais_hybrid&w=740';
 
   return (
     <div style={{
@@ -40,7 +12,7 @@ const NewAIAvatar = ({ isSpeaking }) => {
       transition: 'all 0.3s ease'
     }}>
       <img 
-        src={avatarImage}
+        src={AVATAR_IMAGE}
         alt="AI Assistant"
         style={{
           width: '100%',
