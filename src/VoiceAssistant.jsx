@@ -1,3 +1,4 @@
+import './app-new.css';
 import { useState, useEffect, useRef } from 'react';
 import NewAIAvatar from './components/NewAIAvatar';
 import { GEMINI_CONFIG, ELEVENLABS_CONFIG, DEEPAI_CONFIG } from './apiConfig';
@@ -5,6 +6,7 @@ import { GEMINI_CONFIG, ELEVENLABS_CONFIG, DEEPAI_CONFIG } from './apiConfig';
 const VoiceAssistant = () => {
   const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState('Press button to start microphone');
+  const [darkMode, setDarkMode] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(ELEVENLABS_CONFIG.VOICE_ID);
@@ -72,12 +74,21 @@ const VoiceAssistant = () => {
       const response = await fetch(DEEPAI_CONFIG.IMAGE_GENERATION.API_URL, {
         method: 'POST',
         headers: {
-          'api-key': DEEPAI_CONFIG.IMAGE_GENERATION.API_KEY
+          'api-key': DEEPAI_CONFIG.IMAGE_GENERATION.API_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: new URLSearchParams({ text: prompt })
+        body: new URLSearchParams({ 
+          text: prompt,
+          grid_size: '1',
+          image_generator_version: 'hd'
+        })
       });
       
-      if (!response.ok) throw new Error('Image generation failed');
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('DeepAI API Error:', error);
+        throw new Error(error.err || 'Image generation failed');
+      }
       const data = await response.json();
       return data.output_url;
     } catch (error) {
@@ -184,6 +195,13 @@ const VoiceAssistant = () => {
 
 
   useEffect(() => {
+    // Apply dark mode class to body
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+
     if (!('webkitSpeechRecognition' in window)) {
       setStatus('कृपया Chrome ब्राउज़र का उपयोग करें');
       return;
@@ -240,14 +258,21 @@ const VoiceAssistant = () => {
   }, []);
 
   return (
-    <div className="voice-assistant">
+    <div className={`voice-assistant ${darkMode ? 'dark-mode' : ''}`}>
       <NewAIAvatar isSpeaking={isListening || isLoading} />
       <div className="voice-controls">
         <div className="button-container">
           <button onClick={toggleListening} className={isListening ? 'listening' : ''}>
               {isListening ? 'Stop' : 'Start'}
           </button>
+          <button 
+            onClick={() => setDarkMode(!darkMode)}
+            style={{marginLeft: '10px'}}
+          >
+            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
         </div>
+      
       
         <div className="voice-selection">
           <select
