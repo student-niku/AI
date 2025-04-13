@@ -1,6 +1,6 @@
 {
   
-"homepage": "https://student-niku.github.io/AI",
+"homepage": " https://student-niku.github.io/AI/",
   
 "name": "my-project",
   
@@ -28,7 +28,7 @@
 "predeploy": "npm run build",
   
   
-"deploy": "gh-pages -d build"
+"deploy": "gh-pages -d dist"
   
 },
   
