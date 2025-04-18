@@ -1,7 +1,7 @@
 .voice-assistant {
-  max-width: 800px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 20px;
+  padding: 10px;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -53,17 +53,17 @@ button.listening {
   padding: 10px;
   border-radius: 5px;
   margin-bottom: 10px;
-  max-width: 80%;
+  text-wrap: normal;
+/* Allow full width based on content */
 }
 
 .message.user {
-  align-self: flex-end;
-  background-color: #e3f2fd;
+  text-align: right;
+ 
 }
 
 .message.assistant {
   align-self: flex-start;
-  background-color: #f1f1f1;
 }
 
 .status {

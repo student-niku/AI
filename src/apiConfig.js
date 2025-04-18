@@ -4,18 +4,27 @@ export const GEMINI_CONFIG = {
   MODEL_ID: 'gemini-2.0-flash'
 };
 
-export const DEEPAI_CONFIG = {
+export const PLAYAICONFIG = {
   TEXT_TO_SPEECH: {
-    API_URL: 'https://api.deepai.org/api/text-to-speech',
-    API_KEY: 'c37def9c-961a-4106-9782-d01051423120',
-    VOICE: 'hindi-male'
+    API_URL: 'https://api.play.ai/v1/tts',
+    API_KEY: 'ak-84725c8dcb0148ed9b6ded02cd7e0bb8', // Replace with actual key
+    VOICE: 'hindi',
+    FORMAT: 'mp3'
   }
-  
 };
 
-export const ELEVENLABS_CONFIG = {
-  API_URL: 'https://api.elevenlabs.io/v1/text-to-speech',
-  API_KEY: 'sk_0e2244834476c0350df8a6391f2e56c25e3c7c2178ae9bca',
-  VOICE_ID: 'gw1NuQzUmi1hJ6BRF06G',
-  MODEL_ID: 'eleven_multilingual_v2'
+// apiConfig.js
+export const VOICERSS_CONFIG = {
+  API_URL: 'https://api.voicerss.org/',
+  API_KEY: 'ae6a9a180053452ab7184bbcce46c931', // Replace with your actual VoiceRSS API key
+};
+
+export const OPENWEATHER_CONFIG = {
+  API_URL: 'https://api.openweathermap.org/data/2.5/weather',
+  API_KEY: '52a9c07ac697f80df57fb88fbc3b375d'
+};
+
+export const NEWS_API_CONFIG = {
+  API_URL: 'https://newsapi.org/v2/top-headlines',
+  API_KEY: '15801fd68e8b45e1b58f84ada91f2e93'
 };
