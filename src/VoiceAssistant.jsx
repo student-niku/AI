@@ -20,6 +20,7 @@ const VoiceAssistant = () => {
   const getGeminiResponse = async (instruction) => {
     try {
       const apiUrl = `${GEMINI_CONFIG.API_URL}?key=${GEMINI_CONFIG.API_KEY}`;
+      console.log('Sending request to Gemini API:', apiUrl, instruction);
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -29,12 +30,17 @@ const VoiceAssistant = () => {
           contents: [{
             parts: [{ text: instruction }]
           }]
-        })
+        }),
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
       
       const data = await response.json();
+      console.log('API response data:', data);
       return data.candidates?.[0]?.content?.parts?.[0]?.text || 
              "माफ़ कीजिए, मैं इस प्रश्न का उत्तर नहीं दे पा रहा हूँ";
     } catch (error) {
@@ -44,8 +50,12 @@ const VoiceAssistant = () => {
   };
 
   const speakText = (text) => {
+    if (!window.speechSynthesis) {
+      console.warn('Speech Synthesis not supported');
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'hi-IN'; // Set the language to Hindi
+    // Use default Windows voice by not setting lang explicitly
     speechSynthesis.speak(utterance);
   };
 
@@ -108,14 +118,14 @@ const VoiceAssistant = () => {
       <NewAIAvatar isSpeaking={isListening || isLoading} />
       <div className="voice-controls">
         <div className="button-container">
-          <button onClick={toggleListening} className={isListening ? 'listening' : ''}>
+          <button onClick={toggleListening} className={isListening ? 'listening' : ''} aria-pressed={isListening} aria-label={isListening ? 'Stop listening' : 'Start listening'}>
               {isListening ? 'Stop' : 'Start'}
           </button>
         </div>
-        <div className="status">
-          {isLoading ? <div className="loading-spinner"></div> : status}
+        <div className="status" role="status" aria-live="polite">
+          {isLoading ? <div className="loading-spinner" aria-label="Loading"></div> : status}
         </div>
-        <div className="conversation">
+        <div className="conversation" aria-live="polite">
           {conversation.map((item, index) => (
             <div key={index} className={`message ${item.role}`}>
               {item.message.content}
